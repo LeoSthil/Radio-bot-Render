@@ -61,7 +61,6 @@ async def setradio(ctx, nombre: str):
 
     current_stream["url"] = RADIOS[nombre]
 
-    # Si el usuario está en un canal de voz, conectar o cambiar stream
     if ctx.author.voice:
         voice_channel = ctx.author.voice.channel
 
@@ -135,6 +134,5 @@ async def on_voice_state_update(member, before, after):
                 await voice_client.disconnect()
                 print(f"🔌 Bot desconectado de {voice_client.channel.name} por estar solo.")
 
-# Ejecuta el bot
 bot.run(TOKEN)
 
