@@ -21,13 +21,13 @@ Thread(target=run_web).start()
 TOKEN = os.getenv("DISCORD_TOKEN")
 STREAM_URL = os.getenv("STREAM_URL")  # URL principal: One
 
-# Diccionario de radios disponibles con nombres personalizados
+# Diccionario de radios disponibles
 RADIOS = {
     "one": STREAM_URL,
     "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3"
 }
 
-# Variable que guarda la URL de la radio actualmente seleccionada
+# Variable para guardar la radio activa
 current_stream = {"url": RADIOS["one"]}
 
 intents = discord.Intents.default()
@@ -49,6 +49,13 @@ async def setradio(ctx, nombre: str):
     else:
         radios_disponibles = ', '.join(RADIOS.keys())
         await ctx.send(f"❌ Radio no encontrada. Opciones disponibles: {radios_disponibles}")
+
+@bot.command()
+async def radios(ctx):
+    mensaje = "**🎧 Radios disponibles:**\n"
+    for nombre, url in RADIOS.items():
+        mensaje += f"• `{nombre}` → {url}\n"
+    await ctx.send(mensaje)
 
 @bot.command()
 async def radio(ctx):
