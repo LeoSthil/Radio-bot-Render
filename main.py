@@ -19,16 +19,15 @@ Thread(target=run_web).start()
 
 # === CONFIGURACIÓN DEL BOT ===
 TOKEN = os.getenv("DISCORD_TOKEN")
-STREAM_URL = os.getenv("STREAM_URL")  # URL principal: One
 
-# Diccionario de radios disponibles
 RADIOS = {
-    "one": STREAM_URL,
+    "one": os.getenv("STREAM_URL"),  # URL original
     "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3"
 }
 
-# Variable para guardar la radio activa
-current_stream = {"url": RADIOS["one"]}
+current_stream = {
+    "url": RADIOS["one"]
+}
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -45,11 +44,46 @@ async def on_ready():
     print(f"✅ Bot conectado como {bot.user}")
 
 @bot.command()
-async def radios(ctx):
-    mensaje = "**🎧 Radios disponibles:**\n"
-    for nombre, url in RADIOS.items():
-        mensaje += f"• `{nombre}` → {url}\n"
-    await ctx.send(mensaje)
+async def radio(ctx):
+    if ctx.author.voice:
+        voice_channel = ctx.author.voice.channel
+
+        vc = ctx.voice_client
+        try:
+            if vc is None:
+                vc = await voice_channel.connect()
+            elif vc.channel != voice_channel:
+                await vc.move_to(voice_channel)
+        except Exception as e:
+            await ctx.send("⚠️ Error conectando al canal de voz.")
+            print(f"Error al conectar o mover voz: {e}")
+            return
+
+        if vc.is_playing():
+            vc.stop()
+
+        try:
+            vc.play(
+                discord.FFmpegPCMAudio(
+                    current_stream["url"],
+                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+                    options="-vn"
+                )
+            )
+            await ctx.send("🔊 Reproduciendo Radio CB.")
+        except Exception as e:
+            await ctx.send("⚠️ Error al reproducir el stream.")
+            print("Error al reproducir con FFmpeg:", e)
+    else:
+        await ctx.send("❌ Debes estar en un canal de voz.")
+
+@bot.command()
+async def stop(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("⏹️ Radio detenida.")
+    else:
+        await ctx.send("❌ El bot no está en un canal de voz.")
 
 @bot.command()
 async def setradio(ctx, nombre: str):
@@ -64,15 +98,16 @@ async def setradio(ctx, nombre: str):
     if ctx.author.voice:
         voice_channel = ctx.author.voice.channel
 
+        vc = ctx.voice_client
         try:
-            if ctx.voice_client is None:
+            if vc is None:
                 vc = await voice_channel.connect()
-            else:
-                vc = ctx.voice_client
-                if vc.channel != voice_channel:
-                    await vc.move_to(voice_channel)
-        except discord.ClientException:
-            vc = ctx.voice_client
+            elif vc.channel != voice_channel:
+                await vc.move_to(voice_channel)
+        except Exception as e:
+            await ctx.send("⚠️ Error conectando al canal de voz.")
+            print(f"Error al conectar o mover voz: {e}")
+            return
 
         if vc.is_playing():
             vc.stop()
@@ -92,47 +127,15 @@ async def setradio(ctx, nombre: str):
     else:
         await ctx.send(f"📻 Radio cambiada a **{nombre.title()}**. Únete a un canal de voz y usa `!radio` para escuchar.")
 
-@bot.command()
-async def radio(ctx):
-    if ctx.author.voice:
-        voice_channel = ctx.author.voice.channel
-        try:
-            vc = await voice_channel.connect()
-        except discord.ClientException:
-            vc = ctx.voice_client
-
-        try:
-            vc.play(
-                discord.FFmpegPCMAudio(
-                    current_stream["url"],
-                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-                    options="-vn"
-                )
-            )
-            await ctx.send("🔊 Reproduciendo la radio seleccionada.")
-        except Exception as e:
-            await ctx.send("⚠️ Error al reproducir el stream.")
-            print("Error al reproducir con FFmpeg:", e)
-    else:
-        await ctx.send("❌ Debes estar en un canal de voz.")
-
-@bot.command()
-async def stop(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("⏹️ Radio detenida.")
-    else:
-        await ctx.send("❌ El bot no está en un canal de voz.")
-
 @bot.event
 async def on_voice_state_update(member, before, after):
     voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
     if voice_client and voice_client.is_connected():
         if len(voice_client.channel.members) == 1:
-            await asyncio.sleep(10)
+            await asyncio.sleep(10)  # Espera 10 segundos antes de verificar de nuevo
             if len(voice_client.channel.members) == 1:
                 await voice_client.disconnect()
                 print(f"🔌 Bot desconectado de {voice_client.channel.name} por estar solo.")
 
+# Ejecuta el bot
 bot.run(TOKEN)
-
