@@ -20,13 +20,11 @@ Thread(target=run_web).start()
 # === CONFIGURACIÓN DEL BOT ===
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Radios disponibles
 RADIOS = {
-    "one": os.getenv("STREAM_URL"),  # URL original
-    "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3",
+    "one": os.getenv("STREAM_URL"),
+    "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3"
 }
-
-current_stream = {"url": RADIOS["one"]}
+current_stream = {"url": RADIOS["one"], "nombre": "one"}
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -46,23 +44,10 @@ async def on_ready():
 async def radio(ctx):
     if ctx.author.voice:
         voice_channel = ctx.author.voice.channel
-        vc = ctx.voice_client
         try:
-            if vc is None:
-                vc = await voice_channel.connect()
-                print("Conectado al canal de voz por primera vez.")
-            elif vc.channel != voice_channel:
-                await vc.move_to(voice_channel)
-                print("Movido a otro canal de voz.")
-            else:
-                print("Ya conectado en el canal correcto, no hago nada.")
-        except Exception as e:
-            print(f"Error al conectar o mover voz: {e}")
-            await ctx.send("⚠️ Error conectando al canal de voz.")
-            return
-
-        if vc.is_playing():
-            vc.stop()
+            vc = await voice_channel.connect()
+        except discord.ClientException:
+            vc = ctx.voice_client  # Ya está conectado
 
         try:
             vc.play(
@@ -72,7 +57,7 @@ async def radio(ctx):
                     options="-vn"
                 )
             )
-            await ctx.send("🔊 Reproduciendo Radio CB.")
+            await ctx.send(f"🔊 Reproduciendo Radio CB: **{current_stream['nombre'].title()}**")
         except Exception as e:
             await ctx.send("⚠️ Error al reproducir el stream.")
             print("Error al reproducir con FFmpeg:", e)
@@ -96,25 +81,10 @@ async def setradio(ctx, nombre: str):
         return
 
     current_stream["url"] = RADIOS[nombre]
+    current_stream["nombre"] = nombre
 
-    if ctx.author.voice:
-        voice_channel = ctx.author.voice.channel
-
-        vc = ctx.voice_client
-        try:
-            if vc is None:
-                vc = await voice_channel.connect()
-                print("Conectado al canal de voz por primera vez.")
-            elif vc.channel != voice_channel:
-                await vc.move_to(voice_channel)
-                print("Movido a otro canal de voz.")
-            else:
-                print("Ya conectado en el canal correcto, no hago nada.")
-        except Exception as e:
-            print(f"Error al conectar o mover voz: {e}")
-            await ctx.send("⚠️ Error conectando al canal de voz.")
-            return
-
+    vc = ctx.voice_client
+    if vc and vc.is_connected():
         if vc.is_playing():
             vc.stop()
 
@@ -145,4 +115,5 @@ async def on_voice_state_update(member, before, after):
 
 # Ejecuta el bot
 bot.run(TOKEN)
+
 
