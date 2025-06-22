@@ -19,7 +19,16 @@ Thread(target=run_web).start()
 
 # === CONFIGURACIÓN DEL BOT ===
 TOKEN = os.getenv("DISCORD_TOKEN")
-STREAM_URL = os.getenv("STREAM_URL")
+STREAM_URL = os.getenv("STREAM_URL")  # URL principal: One
+
+# Diccionario de radios disponibles con nombres personalizados
+RADIOS = {
+    "one": STREAM_URL,
+    "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3"
+}
+
+# Variable que guarda la URL de la radio actualmente seleccionada
+current_stream = {"url": RADIOS["one"]}
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -30,6 +39,16 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"✅ Bot conectado como {bot.user}")
+
+@bot.command()
+async def setradio(ctx, nombre: str):
+    nombre = nombre.lower()
+    if nombre in RADIOS:
+        current_stream["url"] = RADIOS[nombre]
+        await ctx.send(f"📻 Cambiada a la radio: **{nombre.title()}**")
+    else:
+        radios_disponibles = ', '.join(RADIOS.keys())
+        await ctx.send(f"❌ Radio no encontrada. Opciones disponibles: {radios_disponibles}")
 
 @bot.command()
 async def radio(ctx):
@@ -43,12 +62,12 @@ async def radio(ctx):
         try:
             vc.play(
                 discord.FFmpegPCMAudio(
-                    STREAM_URL,
+                    current_stream["url"],
                     before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                     options="-vn"
                 )
             )
-            await ctx.send("🔊 Reproduciendo Radio CB.")
+            await ctx.send("🔊 Reproduciendo la radio seleccionada.")
         except Exception as e:
             await ctx.send("⚠️ Error al reproducir el stream.")
             print("Error al reproducir con FFmpeg:", e)
@@ -68,7 +87,7 @@ async def on_voice_state_update(member, before, after):
     voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
     if voice_client and voice_client.is_connected():
         if len(voice_client.channel.members) == 1:
-            await asyncio.sleep(10)  # Espera 10 segundos antes de verificar de nuevo
+            await asyncio.sleep(10)
             if len(voice_client.channel.members) == 1:
                 await voice_client.disconnect()
                 print(f"🔌 Bot desconectado de {voice_client.channel.name} por estar solo.")
