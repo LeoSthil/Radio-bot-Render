@@ -20,14 +20,13 @@ Thread(target=run_web).start()
 # === CONFIGURACIÓN DEL BOT ===
 TOKEN = os.getenv("DISCORD_TOKEN")
 
+# Radios disponibles
 RADIOS = {
     "one": os.getenv("STREAM_URL"),  # URL original
-    "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3"
+    "ibiza": "https://cdn-peer022.streaming-pro.com:8025/ibizaglobalradio.mp3",
 }
 
-current_stream = {
-    "url": RADIOS["one"]
-}
+current_stream = {"url": RADIOS["one"]}
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -47,16 +46,19 @@ async def on_ready():
 async def radio(ctx):
     if ctx.author.voice:
         voice_channel = ctx.author.voice.channel
-
         vc = ctx.voice_client
         try:
             if vc is None:
                 vc = await voice_channel.connect()
+                print("Conectado al canal de voz por primera vez.")
             elif vc.channel != voice_channel:
                 await vc.move_to(voice_channel)
+                print("Movido a otro canal de voz.")
+            else:
+                print("Ya conectado en el canal correcto, no hago nada.")
         except Exception as e:
-            await ctx.send("⚠️ Error conectando al canal de voz.")
             print(f"Error al conectar o mover voz: {e}")
+            await ctx.send("⚠️ Error conectando al canal de voz.")
             return
 
         if vc.is_playing():
@@ -102,11 +104,15 @@ async def setradio(ctx, nombre: str):
         try:
             if vc is None:
                 vc = await voice_channel.connect()
+                print("Conectado al canal de voz por primera vez.")
             elif vc.channel != voice_channel:
                 await vc.move_to(voice_channel)
+                print("Movido a otro canal de voz.")
+            else:
+                print("Ya conectado en el canal correcto, no hago nada.")
         except Exception as e:
-            await ctx.send("⚠️ Error conectando al canal de voz.")
             print(f"Error al conectar o mover voz: {e}")
+            await ctx.send("⚠️ Error conectando al canal de voz.")
             return
 
         if vc.is_playing():
@@ -139,3 +145,4 @@ async def on_voice_state_update(member, before, after):
 
 # Ejecuta el bot
 bot.run(TOKEN)
+
