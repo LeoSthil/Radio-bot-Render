@@ -34,21 +34,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    activity=discord.Activity(type=discord.ActivityType.listening, name="la mejor música")
+)
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot conectado como {bot.user}")
-
-@bot.command()
-async def setradio(ctx, nombre: str):
-    nombre = nombre.lower()
-    if nombre in RADIOS:
-        current_stream["url"] = RADIOS[nombre]
-        await ctx.send(f"📻 Cambiada a la radio: **{nombre.title()}**")
-    else:
-        radios_disponibles = ', '.join(RADIOS.keys())
-        await ctx.send(f"❌ Radio no encontrada. Opciones disponibles: {radios_disponibles}")
 
 @bot.command()
 async def radios(ctx):
@@ -58,46 +52,34 @@ async def radios(ctx):
     await ctx.send(mensaje)
 
 @bot.command()
-async def radio(ctx):
+async def setradio(ctx, nombre: str):
+    nombre = nombre.lower()
+    if nombre not in RADIOS:
+        opciones = ', '.join([f"`{r}`" for r in RADIOS.keys()])
+        await ctx.send(f"❌ Radio no encontrada.\nRadios disponibles: {opciones}")
+        return
+
+    current_stream["url"] = RADIOS[nombre]
+
+    # Si el usuario está en un canal de voz, conectar o cambiar stream
     if ctx.author.voice:
         voice_channel = ctx.author.voice.channel
+
         try:
-            vc = await voice_channel.connect()
+            if ctx.voice_client is None:
+                vc = await voice_channel.connect()
+            else:
+                vc = ctx.voice_client
+                if vc.channel != voice_channel:
+                    await vc.move_to(voice_channel)
         except discord.ClientException:
-            vc = ctx.voice_client  # Ya está conectado
+            vc = ctx.voice_client
+
+        if vc.is_playing():
+            vc.stop()
 
         try:
             vc.play(
                 discord.FFmpegPCMAudio(
                     current_stream["url"],
-                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-                    options="-vn"
-                )
-            )
-            await ctx.send("🔊 Reproduciendo la radio seleccionada.")
-        except Exception as e:
-            await ctx.send("⚠️ Error al reproducir el stream.")
-            print("Error al reproducir con FFmpeg:", e)
-    else:
-        await ctx.send("❌ Debes estar en un canal de voz.")
-
-@bot.command()
-async def stop(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.disconnect()
-        await ctx.send("⏹️ Radio detenida.")
-    else:
-        await ctx.send("❌ El bot no está en un canal de voz.")
-
-@bot.event
-async def on_voice_state_update(member, before, after):
-    voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
-    if voice_client and voice_client.is_connected():
-        if len(voice_client.channel.members) == 1:
-            await asyncio.sleep(10)
-            if len(voice_client.channel.members) == 1:
-                await voice_client.disconnect()
-                print(f"🔌 Bot desconectado de {voice_client.channel.name} por estar solo.")
-
-# Ejecuta el bot
-bot.run(TOKEN)
+                    before_options="-reconnect 1 -reconnect_streamed 1 -re
